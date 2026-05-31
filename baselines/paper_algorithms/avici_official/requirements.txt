@@ -1,0 +1,13 @@
+jax>=0.3.17
+jaxlib>=0.3.14
+matplotlib
+numpy<2
+pandas
+igraph
+scikit-learn
+tqdm
+dm-haiku>=0.0.8
+optax
+pyarrow==10.0.1
+deepdiff
+huggingface-hub
