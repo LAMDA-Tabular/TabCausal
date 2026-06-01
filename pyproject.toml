@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabcausal"
+version = "0.1.0"
+description = "Public inference and benchmark utilities for TabCausal."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23,<2",
+  "torch>=2.1",
+  "scikit-learn>=1.2",
+  "tqdm>=4.66",
+  "pandas>=1.5",
+  "matplotlib>=3.7",
+  "pyarrow>=10",
+]
+
+[project.scripts]
+tabcausal = "tabcausal.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tabcausal*", "baselines*"]

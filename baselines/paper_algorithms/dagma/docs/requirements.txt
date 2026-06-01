@@ -1,0 +1,5 @@
+sphinx
+sphinx-immaterial
+myst-parser
+sphinx-design
+sphinx-autoapi

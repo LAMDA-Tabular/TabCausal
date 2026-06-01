@@ -1,0 +1,142 @@
+---
+train_n_vars: [2, 5, 10, 20, 30, 40, 50, 60, 80, 100]
+test_n_vars: [20, 50, 100]
+test_n_datasets: 5
+
+additional_modules:
+  - "./mechanism_extra.py"
+
+data:
+  - n_observations_obs: 600
+    n_observations_int: 200
+
+    # Focused semantic-repair prior:
+    # 1) screening-like workflows
+    # 2) risk-root fan-out structures
+    # 3) monotone nonlinear mechanisms that were weak on semantic
+    # 4) moderate heavy-tail structural noise
+    graph:
+      - __class__: ScreeningFlow
+        n_stages: [4, 5, 6]
+        edge_prob: [0.12, 0.18, 0.24]
+        skip_prob: [0.02, 0.05, 0.08]
+        max_edges_per_var: [1.1, 1.4]
+
+      - __class__: RiskRootFork
+        n_roots: [1, 2, 3]
+        branch_prob: [0.40, 0.55, 0.70]
+        local_chain_prob: [0.30, 0.45, 0.60]
+        overlap_prob: [0.03, 0.08, 0.12]
+        max_edges_per_var: [1.2, 1.6]
+
+      # Keep one familiar sparse prior so scm-v3 is corrective, not alien.
+      - __class__: ScaleFreeTranspose
+        edges_per_var: [1, 2]
+        power: [0.8, 1.2]
+
+    mechanism:
+      # Heavy-tail linear: addresses the most stable noise weakness without
+      # going all the way to pathological Cauchy tails.
+      - __class__: LinearAdditive
+        param:
+          - __class__: SignedUniform
+            low: 0.20
+            high: 2.50
+        bias:
+          - __class__: Uniform
+            low: -1.0
+            high: 1.0
+        noise:
+          - __class__: StudentT
+            df: 4.0
+            scale: 1.0
+          - __class__: Laplace
+        noise_scale:
+          - __class__: Uniform
+            low: 0.10
+            high: 0.60
+          - __class__: Uniform
+            low: 0.60
+            high: 1.20
+        n_interv_vars: [1.0]
+        interv_dist:
+          - __class__: SignedUniform
+            low: 1.0
+            high: 4.0
+
+      # Smooth threshold-like monotone mechanism.
+      - __class__: SoftplusAdditive
+        param:
+          - __class__: SignedUniform
+            low: 0.25
+            high: 2.00
+        bias:
+          - __class__: Uniform
+            low: -0.8
+            high: 0.8
+        noise:
+          - __class__: Gaussian
+          - __class__: Laplace
+        noise_scale:
+          - __class__: Uniform
+            low: 0.08
+            high: 0.50
+        n_interv_vars: [1.0]
+        interv_dist:
+          - __class__: SignedUniform
+            low: 1.0
+            high: 3.5
+
+      # Bounded monotone S-shape with cleaner noise than the broad v1 PNL pool.
+      - __class__: SigmoidAdditive
+        param:
+          - __class__: SignedUniform
+            low: 0.25
+            high: 1.80
+        bias:
+          - __class__: Uniform
+            low: -0.8
+            high: 0.8
+        noise:
+          - __class__: Gaussian
+          - __class__: Laplace
+        noise_scale:
+          - __class__: Uniform
+            low: 0.05
+            high: 0.35
+        n_interv_vars: [1.0]
+        interv_dist:
+          - __class__: SignedUniform
+            low: 1.0
+            high: 3.0
+
+      # Explicit threshold mechanism, but kept in a learnable regime:
+      # positive weights, moderate threshold, low-to-mid noise.
+      - __class__: ThresholdAdditive
+        param:
+          - __class__: Uniform
+            low: 0.25
+            high: 1.50
+        bias:
+          - __class__: Uniform
+            low: -0.4
+            high: 0.4
+        threshold:
+          - __class__: Uniform
+            low: 0.10
+            high: 0.45
+        noise:
+          - __class__: Gaussian
+          - __class__: Laplace
+        noise_scale:
+          - __class__: Uniform
+            low: 0.05
+            high: 0.30
+          - __class__: Uniform
+            low: 0.30
+            high: 0.70
+        n_interv_vars: [1.0]
+        interv_dist:
+          - __class__: SignedUniform
+            low: 1.0
+            high: 3.5

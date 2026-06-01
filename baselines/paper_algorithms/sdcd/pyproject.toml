@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "sdcd"
+version = "0.1.4"
+description = "Stable differentiable causal discovery for interventional data."
+authors = ["Achille Nazaret <aon2108@columbia.edu>", "Justin Hong <jjh2230@columbia.edu>"]
+readme = "README.md"
+license = "MIT"
+packages = [{include = "sdcd"}]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+torch = "^2.1.0"
+wandb = "^0.15.12"
+pandas = "^1.1.1"
+tqdm = "^4.66.1"
+networkx = "^3.2.1"
+numba = "^0.59.1"
+scipy = "^1.11.3"
+click = {version = "^8.1.7", optional = true}
+
+[tool.poetry.extras]
+tests = ["pytest", "gies", "scikit-learn", "pytorch-lightning", "tensorflow", "anndata"]
+benchmark = ["gies", "scikit-learn", "pytorch-lightning", "tensorflow", "tensorflow-macos", "click", "seaborn", "matplotlib"]
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.5.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

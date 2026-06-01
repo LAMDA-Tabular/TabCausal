@@ -1,0 +1,39 @@
+from setuptools import setup, find_packages
+setup(
+    name='avici',
+    version='1.0.7',
+    description='Amortized Inference for Causal Structure Learning',
+    author='Lars Lorch',
+    author_email='lars.lorch@inf.ethz.ch',
+    url="https://github.com/larslorch/avici",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.10, <3.12',
+    packages=find_packages(),
+    package_data={
+        'avici': [
+            'assets/*.tsv',
+            'config/examples/*.yaml',
+            'config/train/*.yaml',
+            'synthetic/sergio/*.yaml',
+        ],
+    },
+    install_requires=[
+        'jax>=0.3.17',
+        'jaxlib>=0.3.14',
+        'matplotlib',
+        'numpy<2',
+        'pandas',
+        'igraph',
+        'scikit-learn',
+        'tqdm',
+        'dm-haiku>=0.0.8',
+        'optax',
+        'pyarrow==10.0.1',
+        'deepdiff',
+        'huggingface-hub',
+    ]
+)

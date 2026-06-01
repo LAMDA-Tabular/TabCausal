@@ -1,0 +1,76 @@
+# macOS / editor metadata
+.DS_Store
+._*
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python caches and local package metadata
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Runtime caches
+.matplotlib_cache/
+.cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Local experiment outputs
+results/
+outputs/
+figures/
+runs/
+wandb/
+lightning_logs/
+
+# Baseline pretrained weights can be supplied locally when running the
+# corresponding baseline.
+baselines/paper_algorithms/sea-reproduce/checkpoints/
+
+# Generated example data and predictions
+examples/example_data*/
+examples/example_results*/
+examples/generated*/
+examples/toy_data/
+examples/toy_results/
+
+# Keep the example source files and README, but not generated matrices/archives.
+!examples/
+!examples/README.md
+!examples/make_example_data.py
+!examples/minimal_predict.py
+
+# Model/checkpoint policy:
+# keep the public TabCausal checkpoint, ignore ad-hoc checkpoint files
+# elsewhere.
+checkpoints/*
+*.pt
+*.ckpt
+*.pth
+*.safetensors
+!checkpoints/
+!checkpoints/tabcausal-base.pt
+
+# Archives created for distribution
+*.zip
+*.tar
+*.tar.gz
+*.tgz
