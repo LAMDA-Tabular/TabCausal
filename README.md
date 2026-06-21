@@ -1,94 +1,63 @@
 # TabCausal
 
-This repository contains the public TabCausal package: model definitions, a
-Python API, command-line prediction tools, benchmark runners, and data
-generators for reproducing the synthetic benchmark inputs.
+TabCausal is a pretrained model for tabular causal discovery. Given an
+observational or mixed observational/interventional table, it predicts a
+directed causal graph as edge probabilities and a thresholded adjacency matrix.
+
+This repository provides the public inference package, a release checkpoint,
+synthetic benchmark tools, and wrappers for paper baselines.
+
+## Links
+
+- Paper: TabCausal: Pretraining Across Causal Environments for Tabular Causal Discovery
+- arXiv: https://arxiv.org/abs/2605.31156
+- Current checkpoint: [`checkpoints/tabcausal-base.pt`](https://huggingface.co/LAMDA-Tabular/TabCausal)
+- Package entry point: `tabcausal`
 
 ## Repository Layout
 
 ```text
-tabcausal/                  Python package
-  model/                    Model architecture
-  inference.py              Predictor API
-  preprocessing.py          Data preprocessing
-  evaluate.py               Evaluation utilities
-  metrics.py                Metric utilities
-  cli.py                    Command-line interface
-baselines/                  Baseline runners and included dependencies
-  paper_algorithms/         Included baseline scripts/dependencies
-scripts/
-  generate_benchmark_suite.py
-                             Generate all seven synthetic benchmark families
-  evaluate_directory.py     Evaluate one benchmark directory
-  evaluate_benchmark_suite.py
-                             Evaluate the seven-family benchmark suite
-  visualize_prediction.py   Plot probability/adjacency heatmaps and embedding PCA
-  visualize_evaluation.py   Plot summary metrics and prediction heatmaps
-examples/
-  make_example_data.py      Create a small gp_hard smoke-test dataset
-  minimal_predict.py        Minimal Python API example
-checkpoints/
-  tabcausal-base.pt         Public checkpoint, if included separately
-data_engine/                Benchmark data-generation components
+tabcausal/      Model, preprocessing, inference API, CLI, and metrics
+checkpoints/    Released TabCausal checkpoint
+examples/       Small data and prediction examples
+scripts/        Benchmark generation, evaluation, and visualization scripts
+data_engine/    Synthetic benchmark data-generation components
+baselines/      Paper baseline wrappers and notes
 ```
 
 ## Requirements
 
-- Python 3.10 or newer
-- PyTorch 2.1 or newer
-- NumPy 1.x. Some PyTorch wheels are not compatible with NumPy 2.x.
-- scikit-learn, for AUROC/AP metrics and PCA visualization
-- pandas, for CSV/TSV/Parquet/Pickle table inputs
-- matplotlib, for optional visualization scripts
-- Optional for official SID: R with the CRAN `SID` package
-- Paper baseline Python dependencies are included in `requirements.txt`.
-- Some optional graph-learning dependencies may require an OpenMP runtime in
-  the active environment.
-
-Install dependencies with either:
+TabCausal requires Python 3.10+, PyTorch 2.1+, and common scientific Python
+packages. Install the full dependency list with:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-If your environment already has NumPy 2.x and PyTorch reports
-`RuntimeError: Numpy is not available`, reinstall NumPy 1.x inside the same
-environment:
-
-```bash
-python -m pip install "numpy>=1.23,<2" --force-reinstall
-```
-
-or, if you want the `tabcausal` command installed:
+For editable package installation:
 
 ```bash
 pip install -e .
 ```
 
-If you do not want to install the package, use `PYTHONPATH`:
-
-```bash
-export PYTHONPATH="$PWD:$PYTHONPATH"
-python -m tabcausal.cli --help
-```
+Some baselines require additional R/JAX dependencies or external checkpoints.
+See [`baselines/README.md`](baselines/README.md) for details.
 
 ## Checkpoint
 
-The examples below use the checkpoint path:
+We provide `checkpoints/tabcausal-base.pt` as the current public release
+checkpoint. The same checkpoint is hosted on Hugging Face:
 
-```text
-checkpoints/tabcausal-base.pt
-```
+https://huggingface.co/LAMDA-Tabular/TabCausal
 
-## Quick Smoke Test
+The examples below use the local checkpoint path. We plan to update the
+released checkpoint as newer TabCausal versions become available.
 
-This checks that imports, checkpoint loading, prediction, and metric writing
-work end to end.
+## Quick Start
+
+Run a small CPU smoke test:
 
 ```bash
-cd /path/to/TabCausal-release
-export PYTHONPATH="$PWD:$PYTHONPATH"
-
 python examples/make_example_data.py \
   --output-root examples/example_data \
   --num-graphs 10 \
@@ -102,79 +71,76 @@ python -m tabcausal.cli predict-dir \
   --mode auto \
   --threshold 0.5 \
   --batch-size 16 \
-  --device cpu \
-  --save-embeddings
+  --device cpu
 
 cat examples/example_results/summary.csv
-ls -lh examples/example_results
-
-python scripts/visualize_evaluation.py \
-  --prediction-npz examples/example_results/predictions.npz \
-  --index 0 \
-  --output-dir examples/example_results/figures
-
-find examples/example_results/figures -type f | sort
 ```
 
-The example data uses the `gp_hard` observational setting with `f=5`. The
-command above creates 10 graphs and 1000 observational samples per graph.
+Use `--device cuda:0` for GPU inference.
 
-Use `--device cuda:0` when a CUDA GPU is available.
+## Predict Your Own Data
 
-## Predict One Graph
+Predict one graph:
 
 ```bash
 python -m tabcausal.cli predict \
   --checkpoint checkpoints/tabcausal-base.pt \
-  --input /path/to/data_f20_000.npz \
-  --output outputs/data_f20_000_predictions.npz \
+  --input /path/to/data.npz \
+  --output outputs/prediction.npz \
   --device cuda:0 \
   --threshold 0.5
 ```
 
-The output file contains:
+The output contains edge logits, edge probabilities, and a thresholded
+adjacency matrix. `probabilities[i, j]` and `adjacency[i, j]` correspond to the
+directed edge `i -> j`. Self-loops are always cleared.
 
-- `logits`: raw directed-edge logits
-- `probabilities`: sigmoid probabilities
-- `adjacency`: binary directed graph after thresholding
-- `embeddings`: final-layer node embeddings, when `--include-embeddings` or
-  `--embedding-output` is used
+Python API:
 
-You can also read NumPy/Pandas-style tables and write separate files for each
-artifact:
+```python
+from tabcausal import TabCausalPredictor
+from tabcausal.preprocessing import load_input_file
 
-```bash
-python -m tabcausal.cli predict \
-  --checkpoint checkpoints/tabcausal-base.pt \
-  --input /path/to/table.csv \
-  --output outputs/example_prediction.npz \
-  --adjacency-output outputs/example_adjacency.csv \
-  --probability-output outputs/example_probabilities.csv \
-  --embedding-output outputs/example_embeddings.npy \
-  --device cuda:0
+predictor = TabCausalPredictor("checkpoints/tabcausal-base.pt", device="cuda:0")
+example = load_input_file("data_f20_000.npz")
+probabilities = predictor.predict_proba(example.x)[0]
+adjacency = predictor.predict_adjacency(example.x, threshold=0.5)[0]
 ```
 
-For mixed observational/interventional inputs stored as plain tables, pass a
-same-shaped binary intervention indicator table:
+## Input and Output Format
 
-```bash
-python -m tabcausal.cli predict \
-  --checkpoint checkpoints/tabcausal-base.pt \
-  --input /path/to/values.csv \
-  --intervention-input /path/to/intervention_mask.csv \
-  --output outputs/mixed_prediction.npz \
-  --device cuda:0
+TabCausal accepts `.npz`, `.npy`, `.csv`, `.tsv`, `.txt`, `.parquet`, `.pkl`,
+and `.pickle` inputs.
+
+Input arrays can be shaped as:
+
+```text
+[observations, variables]
+[observations, variables, 2]
 ```
 
-Supported single-file inputs:
+For the two-channel format, channel 0 stores observed values and channel 1
+stores binary intervention indicators. For plain table inputs with interventions,
+pass a same-shaped binary mask with `--intervention-input`.
 
-- `.npz`: benchmark schema or arrays under `x`, `X`, `data`, `values`, `table`
-- `.npy`: NumPy array shaped `[observations, variables]` or
-  `[observations, variables, 2]`
-- `.csv`, `.tsv`, `.txt`: numeric columns are used as variables
-- `.parquet`, `.pkl`, `.pickle`: numeric pandas columns are used as variables
+For `.npz` files, common data keys such as `x`, `X`, `data`, `values`, `table`,
+`obs`, and `int` are recognized. Ground-truth graph keys may be named `g`, `G`,
+`graph`, `dag`, `adjacency`, `A`, or `target`.
 
-## Evaluate One Benchmark Directory
+Prediction outputs contain:
+
+```text
+logits          raw directed-edge logits
+probabilities   sigmoid edge probabilities
+adjacency       thresholded directed graph
+embeddings      optional final-layer node embeddings
+```
+
+## Benchmark Evaluation
+
+### Evaluate an Existing Benchmark Directory
+
+Use `predict-dir` for a directory of benchmark files:
 
 ```bash
 python -m tabcausal.cli predict-dir \
@@ -187,97 +153,12 @@ python -m tabcausal.cli predict-dir \
   --device cuda:0
 ```
 
-Equivalent script entry:
+This writes `raw_metrics.csv`, `summary.csv`, `predictions.npz`, and optional
+matrix exports when ground truth is available.
 
-```bash
-python scripts/evaluate_directory.py \
-  --checkpoint checkpoints/tabcausal-base.pt \
-  --data-root /path/to/benchmark_directory \
-  --output-dir results/tabcausal_demo \
-  --mode auto \
-  --threshold 0.5 \
-  --batch-size 1 \
-  --device cuda:0
-```
+### Reproduce the Synthetic Benchmark Suite
 
-Outputs:
-
-- `raw_metrics.csv`: per-graph metrics when ground truth is present
-- `summary.csv`: mean and standard deviation grouped by graph size
-- `predictions.npz`: paths, logits, probabilities, and thresholded adjacencies
-- `adjacency_csv/`: per-graph thresholded adjacency matrices
-- `probability_csv/`: per-graph edge probability matrices
-
-Add `--save-embeddings` to directory-level evaluation if you want
-`embedding_npy/` and embedding arrays in `predictions.npz`. Add
-`--no-matrix-exports` if you only want compact CSV summaries and the compressed
-prediction archive.
-
-## Baseline Evaluation
-
-The release includes baseline support in `baselines/`. Use the wrapper around
-the included per-method runners:
-
-```bash
-python -m baselines.run_paper_baselines --list
-
-python -m baselines.run_paper_baselines \
-  --method pc \
-  --input-dir 'examples/example_data/[gp_hard]_obs' \
-  --output-root results/baselines \
-  --exp-name pc_example \
-  --regime obs \
-  --max-per-f 1 \
-  --save-preds
-```
-
-Here `--max-per-f` limits the number of graphs evaluated for each graph size
-`f`; use `-1` to evaluate all available graphs.
-
-To verify that every included baseline runner can execute, run the all-baseline
-smoke script on one generated graph. It keeps going after a method failure and
-writes a pass/fail manifest plus per-method stdout/stderr logs:
-
-```bash
-python scripts/smoke_paper_baselines.py \
-  --data-root examples/generated_smoke_7families \
-  --output-root results/local_release_smoke/baselines \
-  --datasets gp_hard \
-  --max-per-f 1 \
-  --timeout-seconds 300
-
-cat results/local_release_smoke/baselines/baseline_smoke_manifest.csv
-```
-
-This smoke command uses a relaxed NoDAGS `min_samples` setting so the tiny
-one-graph smoke dataset can exercise the runner. By default every baseline
-method subprocess gets the same 300-second wall-clock timeout; override it with
-`--timeout-seconds <seconds>` or pass `--timeout-seconds 0` to disable the
-smoke timeout. The manifest records the timeout used for each method; DCDI's
-internal per-graph limit follows the same value during smoke runs. The official
-AVICI source is included under `baselines/paper_algorithms/avici_official`; if
-you already have another official AVICI checkout, pass it with
-`--avici-root /path/to/official/avici`. AVICI's pretrained weights should be
-available in its cache, or downloadable by `huggingface-hub`. SEA checkpoints
-can be supplied with `--sea-obs-checkpoint` and `--sea-int-checkpoint`. GIES
-requires an R runtime with `Rscript` and the R package `pcalg`.
-
-The baseline runners cover `AVICI`, `SEA`, `DAGMA`, `SDCD`, `DCDI`, `GIES`,
-`CDIS`, `IGSP`, `NOTEARS`, `NOTEARS-MLP`, `LiNGAM`, `PC`, `DAS`,
-`RandomRegress`, and `NoDAGS`. Several heavy research baselines require
-optional Python/R dependencies or checkpoints; see `baselines/README.md` for
-the exact dependency notes.
-
-The metrics include F1, SHD, and SID when ground truth is available. SID is
-computed with the official R `SID` package when R/SID is installed; otherwise
-the code falls back to a Python parent-adjustment approximation and marks the
-source in `SID_source`. Use `--no-official-sid` to skip the R call or `--no-sid`
-to disable SID entirely.
-
-## Evaluate the Seven Synthetic Families
-
-For the public TabCausal reproduction path, generate all seven synthetic
-families with the bundled benchmark data generator:
+Generate the seven public synthetic benchmark families:
 
 ```bash
 python scripts/generate_benchmark_suite.py \
@@ -291,33 +172,7 @@ python scripts/generate_benchmark_suite.py \
   --overwrite
 ```
 
-This creates folders named like `[gp_hard]_obs` and `[gp_hard]_int`,
-compatible with the evaluator below. The bundled data-generation components
-live under `data_engine/`; their Python dependencies are covered by the
-top-level `requirements.txt`.
-
-For the observation-only regime, `--observations 1000` produces 1000
-observational rows. For the mixed-interventional regime, the default split is
-800 observational rows plus 200 interventional rows, i.e. still 1000 total
-rows. To override that split, pass `--mixed-observations` explicitly.
-
-This creates:
-
-```text
-[gp_hard]_obs, [gp_hard]_int
-[gp_simple]_obs, [gp_simple]_int
-[linear_gauss]_obs, [linear_gauss]_int
-[linear_graph]_obs, [linear_graph]_int
-[linear_nongauss]_obs, [linear_nongauss]_int
-[mul_noise]_obs, [mul_noise]_int
-[pfn]_obs, [pfn]_int
-```
-
-The unified generator is the only public benchmark data-generation entry point.
-Use `--families` to generate a subset, for example
-`--families gp_hard,pfn`.
-
-To evaluate either this generated data or your own data root:
+Evaluate TabCausal on the generated suite:
 
 ```bash
 python scripts/evaluate_benchmark_suite.py \
@@ -330,154 +185,67 @@ python scripts/evaluate_benchmark_suite.py \
   --device cuda:0
 ```
 
-By default this evaluates:
+The generator covers `gp_hard`, `gp_simple`, `linear_gauss`, `linear_graph`,
+`linear_nongauss`, `mul_noise`, and `pfn` under both observational (`obs`) and
+mixed interventional (`int`) regimes. For fuller runs, increase
+`--graphs-per-f` and `--max-per-f`.
+
+### Baselines
+
+Baseline wrappers are provided for:
 
 ```text
-gp_hard, gp_simple, linear_gauss, linear_graph,
-linear_nongauss, mul_noise, pfn
+AVICI, SEA, DAGMA, SDCD, DCDI, GIES, CDIS, IGSP,
+NOTEARS, NOTEARS-MLP, LiNGAM, PC, DAS, RandomRegress, NoDAGS
 ```
 
-under both `obs` and `int` regimes. Increase or remove `--max-per-f` for
-larger evaluations.
-
-For a full benchmark-style run with 100 generated graphs per graph size:
+List available methods:
 
 ```bash
-python scripts/generate_benchmark_suite.py \
-  --output-root examples/generated_synthetic_full100 \
-  --regimes obs,int \
-  --observations 1000 \
-  --interventions 200 \
-  --f-values 5,10,20 \
-  --graphs-per-f 100 \
-  --seed 0 \
-  --overwrite
-
-python scripts/evaluate_benchmark_suite.py \
-  --checkpoint checkpoints/tabcausal-base.pt \
-  --suite-data-root examples/generated_synthetic_full100 \
-  --output-dir results/benchmark_suite_full100 \
-  --families gp_hard,gp_simple,linear_gauss,linear_graph,linear_nongauss,mul_noise,pfn \
-  --regimes obs,int \
-  --threshold 0.5 \
-  --max-per-f 100 \
-  --batch-size 1 \
-  --device cuda:0 \
-  --max-observations 1000
-
-cat results/benchmark_suite_full100/benchmark_summary.csv
+python -m baselines.run_paper_baselines --list
 ```
 
-If you already have prepared benchmark folders, skip generation and point
-`--suite-data-root` to that directory.
+See [`baselines/README.md`](baselines/README.md) for method-specific
+dependencies, R requirements, AVICI/SEA checkpoint notes, and smoke tests.
 
-Outputs:
+## Visualization
 
-- one result directory per dataset, for example `[gp_hard]_obs/summary.csv`
-- `manifest.csv`
-- `benchmark_summary.csv`
-
-To visualize the aggregate results:
+Visualization scripts are available for single predictions and benchmark
+summaries:
 
 ```bash
-python scripts/visualize_evaluation.py \
-  --summary-csv results/benchmark_suite_full100/benchmark_summary.csv \
-  --output-dir figures/benchmark_suite_full100
-```
-
-To summarize a generated suite at the data-distribution level:
-
-```bash
-python scripts/compare_suite_statistics.py \
-  --suite-root examples/generated_synthetic \
-  --output-csv results/generated_synthetic_statistics.csv
-```
-
-To compare two suites, pass both `--reference-suite` and `--candidate-suite`
-instead of `--suite-root`.
-
-## Expected NPZ Format
-
-The loader accepts several common key names:
-
-- Data: `x`, `X`, `data`, `x_obs`, `X_obs`, `obs`, `x_int`, `X_int`, `int`
-- Graph: `g`, `G`, `graph`, `dag`, `adjacency`, `A`, `target`
-
-Data may be shaped as:
-
-- `[observations, variables]`
-- `[observations, variables, 2]`
-
-For the two-channel format, channel 0 stores values and channel 1 stores
-intervention indicators.
-
-## Visualization and Analysis
-
-Single-file prediction outputs can be visualized directly:
-
-```bash
-python -m tabcausal.cli predict \
-  --checkpoint checkpoints/tabcausal-base.pt \
-  --input 'examples/example_data/[gp_hard]_obs/data_f5_000.npz' \
-  --output outputs/example_prediction.npz \
-  --include-embeddings \
-  --device cpu
-
 python scripts/visualize_prediction.py \
-  --prediction outputs/example_prediction.npz \
+  --prediction outputs/prediction.npz \
   --output-dir figures/example_prediction \
   --prefix example
-```
 
-This writes:
-
-- `example_probabilities.png`: directed edge probability heatmap
-- `example_adjacency.png`: thresholded adjacency heatmap
-- `example_embedding_pca.png`: PCA projection of final-layer node embeddings, when
-  embeddings are present
-
-The embedding PCA is qualitative. It is useful for inspecting whether node
-representations organize variables by role, but it should not be interpreted as
-a literal geometric reconstruction of the DAG.
-
-For a directory-level prediction archive, use:
-
-```bash
 python scripts/visualize_evaluation.py \
-  --prediction-npz results/tabcausal_demo/predictions.npz \
-  --index 0 \
-  --output-dir figures/tabcausal_demo
+  --summary-csv results/benchmark_suite/benchmark_summary.csv \
+  --output-dir figures/benchmark_suite
 ```
 
-This writes `probability_heatmap.png`, `adjacency_heatmap.png`, and a compact
-`prediction_overview.png`.
+## Runtime Tips
 
-## Python API
+- Use `--batch-size 1` if GPU memory is tight.
+- Use `--max-observations` to deterministically subsample rows before inference.
+- Use `--dtype float16` or `--dtype bfloat16` for lower-memory CUDA inference.
+- SID is computed with the official R `SID` package when available; otherwise
+  a Python approximation is used and recorded in `SID_source`.
 
-```python
-from tabcausal import TabCausalPredictor
-from tabcausal.preprocessing import load_input_file
+## Citation
 
-predictor = TabCausalPredictor(
-    "checkpoints/tabcausal-base.pt",
-    device="cuda:0",
-    max_observations=2000,
-)
+If you use TabCausal, please cite:
 
-example = load_input_file("data_f20_000.npz")
-probabilities = predictor.predict_proba(example.x)[0]
-adjacency = predictor.predict_adjacency(example.x, threshold=0.5)[0]
-embeddings = predictor.predict_embeddings(example.x)[0]
+```bibtex
+@article{li2026tabcausal,
+  title={TabCausal: Pretraining Across Causal Environments for Tabular Causal Discovery},
+  author={Li, Zi-Rong and Liu, Si-Yang and Wang, Tian-Zuo and Ye, Han-Jia},
+  journal={arXiv preprint arXiv:2605.31156},
+  year={2026}
+}
 ```
 
-## Memory and Runtime Options
+## License
 
-- `--batch-size`: number of graph instances evaluated together. Use `1` if
-  memory is tight.
-- `--max-observations`: deterministic row subsampling before inference. This is
-  useful for very large tables because the encoder attends over observations.
-- `--observation-seed`: seed used when `--max-observations` is active.
-- `--dtype`: `float32`, `float16`, or `bfloat16`.
-- `--no-amp`: disables CUDA autocast.
-
-Self-loops are always cleared in output adjacency matrices.
+Please see the repository license file. If no license file is included in your
+checkout, consult the authors before redistribution or reuse.
